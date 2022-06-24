@@ -1,0 +1,163 @@
+----------------
+title:
+"Wiki Movie Plots"
+
+Group members:  
+"Pal Patel"
+"Dhwanil Patel"
+"Mayur Tikmani"
+"Darshan Malaviya"
+"Dev Desai"
+      
+output:          html_document
+---
+### Including libraries
+```{r lib}
+#Including the necessary libraries for the fucntions to run
+library(dplyr)
+library(ggplot2)
+library(mlbench)
+```
+
+### Loading Data
+```{r data}
+#Loading the main data into the Rstudio
+wikiplots <- read.csv("./wiki_movie_plots_deduped.csv")
+#Loading the Wiki Plots Sequence data into the Rstudio
+wikiSequence <- read.csv2("./Rprogramming/wikiPlotsSequence.csv", header=TRUE)
+#Loading the Wiki Plots Encoded fie data into Rstudio
+wikiEncoded <- read.csv2("./wikiPlotsEncoded.csv", header=TRUE)
+#Loading the Wiki word index data into the Rstudio
+wikiWordIndex <- read.csv2("./wordIndex.csv", header=TRUE)
+#Combining the two columnsof the encoded data into the original data(wiki_plots_deduped)
+newData <- cbind(wikiplots,wikiEncoded$Title)
+newData <- cbind(wikiplots, select(wikiEncoded,-c(Title)))
+```
+
+### Grouping of unique values in the Origin.Ethnicity column
+```{r convertOrigin}
+#The Origin.Ethnicity column in the wiki_plots_deduped data has 24 unique values.Below is the grouping of different kind of origins into a total of 5 groups.This makes it easier to take origin as the key parameter for classification.
+convertOrigin <- function(origin)
+  {
+  if (origin %in% c("American")) 
+    {
+    "American"
+    } 
+  else if (origin %in% c("Chinese", "Filipino")) 
+    {
+    "Chinese"
+    } 
+  else if (origin %in% c("Assamese","Bengali","Bollywood","Kannada","Malayalam","Marathi","Punjabi","Tamil","Telugu")) 
+    {
+    "Bollywood"
+    } 
+  else if(origin %in% c("Australian","Canadian","Hong Kong","Japanese","Malaysian"))
+    {
+     "Canadian"
+    }
+  else
+    {
+      "British"
+    }
+
+}
+
+
+origin2 <- unlist(lapply(as.character(wikiplots$Origin.Ethnicity), convertOrigin))
+#Adding the new column as Origin column which contains only 5 unique values of origins
+wikiplots$Origin <- origin2
+#Adding the origin2 column to the newData dataset
+newData$Origin <- origin2
+```
+
+### Plotting
+```{r plotting}
+library(ggplot2)
+#Below is the plotting of Release Year -> Origin.Ethnicity(The older column)
+ggplot(wikiplots, aes(x=Release.Year, y=Origin.Ethnicity, group=Release.Year)) +
+geom_line(aes(color=Release.Year))+
+geom_point(aes(color=Release.Year))
+
+#Density plot taking relase Year on the X axis       
+ggplot(wikiplots, aes(x=Release.Year)) + 
+geom_density()
+
+#Histogram plotted using Release year as the key parameter
+ggplot(wikiplots, aes(x=Release.Year)) + 
+geom_histogram(color="black", fill="white")
+
+#Scatter Plot
+#Plotting a graph of X1->X2 which are the first two columns in the encoded dastaset
+ggplot(newData, aes(x=X1, y=X2)) +
+geom_point()  
+
+#Bar Plot
+#Plotting a graph of X1->X51 which has the first encoded column on the X-axis and 51st encoded column on the Y-axis
+ggplot(newData, aes(x=X1, y=X51))+
+geom_bar(stat='identity')
+
+#Line Plot
+#Plotting a graph of X1->X99 which has the first encoded column on the X-axis and the last encoded column on the Y-axis
+ggplot(newData, aes(x=X1, y=X99))+
+geom_line()
+
+```
+### Applying Filters
+```{r filterorigin}
+#Applying filter to the data by keeping the condition as choosing only those records with "American" as the Origin
+origin <- filter(wikiplots, Origin.Ethnicity == "American")
+head(origin)
+
+```
+
+```{r filtergenre}
+#Applying filter to the data by choosing out only those records with "Comedy" as the genre
+genre <- filter(wikiplots, Genre == "comedy")
+head(genre)
+
+```
+
+```{r sortyear}
+#Arranging the data according to the descending order of the release year
+year<- arrange(wikiplots, desc(Release.Year))
+head(year)
+```
+```{r filter}
+#Filtering thr data with the follwing conditions that the records need to hold true:
+#1.Release Year--1901 to 1950   2.Genre--Comedy/Mystery/Drama
+releaseyear <- filter(wikiplots,Release.Year>=1901&Release.Year<=1950,Genre=="comedy"|Genre=="mystery"|Genre=="drama")
+head(releaseyear)
+```
+### Modelling Data
+```{r modellingData}
+#Including the columns origin,release year and all the encoded columns in the trainData dataset
+trainData <- select(newData, Origin, Release.Year, X1:X999)
+#Taking Origin as a categorical variable 
+trainData$Origin <- as.factor(trainData$Origin)
+```
+
+### Random Forest
+```{r forest}
+#Including the randomForest library to use the randomForest function
+library(randomForest)
+#Including the first 22000 rows in the train dataset and the rest of the rows in the test dataset
+randomOrder <- sample(1:nrow(trainData), nrow(trainData))
+train <- trainData[randomOrder[1:22000],]
+test <- trainData[randomOrder[22001:34884],]
+fit <- randomForest(as.factor(Origin) ~ Release.Year, data=train,importance=TRUE, ntree=10)
+table(test$Origin, predict(fit, test, type='response'))
+```
+
+```{r LinearRegression}
+#Building a linear regression model taking Release Year as the key parameter and displaying the summary of the same
+data(newData)
+wikiplotsData <- lm(Release.Year ~ ., data=train)
+summary(wikiplotsData)
+```
+### Conclusion
+
+Exploring the dataset,we have found that the parameter "Release.Year" can be used to be predicted from the linear regression model.For the random forest section of the coding,a total of 24 unique values in the "Origin" was not fisible to make further code blocks.So,we combined those 24 unique values and grouped them into a total of 5 larger groups that includes all the values in the "Origin.Ethnicity" column and named the newly created column as "Origin" in the newData dataset.The encoded file has 1000 columns with the encoded data which are used for plotting.
+The RSS value of the linear regression model is 20.78
+
+
+
